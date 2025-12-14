@@ -121,7 +121,6 @@ const inviteLinkTasks = document.getElementById("inviteLinkTasks");
 const btnCopyInviteTasks = document.getElementById("btnCopyInviteTasks");
 const btnCopyInviteTasks2 = document.getElementById("btnCopyInviteTasks2");
 const inviteCountTasksEl = document.getElementById("inviteCountTasks");
-const inviteCountTasksEl = document.getElementById("inviteCountTasks");
 
 const supportHandle = document.getElementById("supportHandle");
 const btnOpenSupport = document.getElementById("btnOpenSupport");
