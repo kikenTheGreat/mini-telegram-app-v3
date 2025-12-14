@@ -1,13 +1,18 @@
 {
   "version": 2,
-  "public": true,
+  "rewrites": [
+    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/index.html", "destination": "/public/index.html" },
+    { "source": "/script.js", "destination": "/public/script.js" },
+    { "source": "/style.css", "destination": "/public/style.css" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         {
           "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
+          "value": "ALLOWALL"
         }
       ]
     }
