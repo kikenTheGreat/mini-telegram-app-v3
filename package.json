@@ -1,13 +1,5 @@
 {
   "name": "mini-telegram-app",
   "version": "1.0.0",
-  "description": "Mini Telegram Bot App",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
-  "dependencies": {
-    "express": "^5.2.1"
-  }
+  "description": "Mini Telegram Bot App"
 }
