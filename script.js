@@ -1,14 +1,14 @@
 const PRIMARY = "#0C59FF";
 
 const PRIZES = [
-  { label: "10 USDT", icon: "💎" },
-  { label: "Mystery Box", icon: "🎁" },
-  { label: "20 USDT", icon: "💠" },
-  { label: "Free Spin", icon: "🎡" },
+  { label: "IPHONE 17 PRO MAX", icon: "📱" },
+  { label: "IPAD PRO", icon: "💻" },
+  { label: "1 BTC", icon: "₿" },
+  { label: "100 USDT", icon: "💵" },
+  { label: "BETTER LUCK NEXT TIME", icon: "🔁" },
   { label: "50 USDT", icon: "💰" },
-  { label: "VIP Pass", icon: "👑" },
-  { label: "Skin", icon: "🧩" },
-  { label: "Try Again", icon: "🔁" }
+  { label: "MACBOOK PRO", icon: "💼" },
+  { label: "5 USDT", icon: "💎" }
 ];
 
 const TASKS = [
@@ -728,7 +728,8 @@ async function spin(){
 
   const n = PRIZES.length;
   const step = (Math.PI * 2) / n;
-  const idx = Math.floor(Math.random() * n);
+  // Always land on "BETTER LUCK NEXT TIME" (index 4)
+  const idx = 4;
 
   const target = (Math.PI * 1.5) - (idx * step + step/2);
   const extra = (Math.PI * 2) * (5 + Math.floor(Math.random()*3));
