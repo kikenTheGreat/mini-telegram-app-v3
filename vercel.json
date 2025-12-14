@@ -3,10 +3,12 @@
   "builds": [
     { "src": "index.html", "use": "@vercel/static" },
     { "src": "script.js", "use": "@vercel/static" },
-    { "src": "style.css", "use": "@vercel/static" }
+    { "src": "style.css", "use": "@vercel/static" },
+    { "src": "api/webhook.js", "use": "@vercel/node" }
   ],
   "routes": [
     { "handle": "filesystem" },
+    { "src": "/api/webhook", "dest": "/api/webhook.js" },
     { "src": "/.*", "dest": "/index.html" }
   ],
   "headers": [
