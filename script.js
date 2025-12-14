@@ -121,6 +121,7 @@ const inviteLinkTasks = document.getElementById("inviteLinkTasks");
 const btnCopyInviteTasks = document.getElementById("btnCopyInviteTasks");
 const btnCopyInviteTasks2 = document.getElementById("btnCopyInviteTasks2");
 const inviteCountTasksEl = document.getElementById("inviteCountTasks");
+const inviteCountTasksEl = document.getElementById("inviteCountTasks");
 
 const supportHandle = document.getElementById("supportHandle");
 const btnOpenSupport = document.getElementById("btnOpenSupport");
@@ -130,6 +131,7 @@ let spinning = false;
 let history = [];
 let inviteCount = 0;
 let inviteCountTasks = 0;
+let lastInviteCopyDate = loadJSON("miniapp_last_invite_copy_v1", null);
 let lastDailyClaim = loadJSON("miniapp_daily_claim_v1", null);
 
 const taskStateKey = "miniapp_task_state_v1";
@@ -280,9 +282,97 @@ function updateInviteCounters(){
   if(inviteCountTasksEl) inviteCountTasksEl.textContent = inviteCountTasks;
 }
 
+async function canCopyInviteToday(){
+  if(!supa) return true; // Allow copy if Supabase unavailable (dev mode)
+  
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+  
+  // Check localStorage first for quick validation
+  if(lastInviteCopyDate === today) return false;
+  
+  // Double-check with database (user might have copied on another device)
+  const { data, error } = await supa
+    .from("daily_claims")
+    .select("claim_date")
+    .eq("user_id", user.id)
+    .eq("claim_date", today)
+    .maybeSingle();
+  
+  if(error){
+    console.error("[Invite] Error checking daily copy:", error);
+    return true; // Allow on error
+  }
+  
+  return !data; // Can copy if no record for today
+}
+
+function getNextInviteCopyTime(){
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  return tomorrow;
+}
+
+function formatInviteCopyCountdown(){
+  const next = getNextInviteCopyTime();
+  const now = new Date();
+  const diff = next - now;
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  return `${hours}h ${minutes}m`;
+}
+
+function updateInviteCopyButtons(){
+  const today = new Date().toISOString().split('T')[0];
+  const canCopy = lastInviteCopyDate !== today;
+  
+  const buttons = [btnCopyInvite, btnCopyInvite2, btnCopyInviteTasks, btnCopyInviteTasks2];
+  buttons.forEach(btn => {
+    if(btn){
+      btn.disabled = !canCopy;
+      if(!canCopy){
+        btn.textContent = `Copy in ${formatInviteCopyCountdown()}`;
+        btn.classList.add('btn-secondary');
+        btn.classList.remove('btn-primary');
+      }else{
+        btn.textContent = "Copy Link";
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+      }
+    }
+  });
+}
+
 async function recordInviteShare(){
   if(!supa) return;
+  
+  const today = new Date().toISOString().split('T')[0];
+  
+  // Check if already copied today
+  const canCopy = await canCopyInviteToday();
+  if(!canCopy){
+    console.log("[Invite] Already copied today");
+    showToast(`Already copied today! Next copy in ${formatInviteCopyCountdown()}`);
+    updateInviteCopyButtons();
+    return;
+  }
+  
   console.log("[Invite] Recording share");
+  
+  // Record in daily_claims table to track daily limit
+  const { error: claimError } = await supa.from("daily_claims").insert({
+    user_id: user.id,
+    claim_date: today,
+    created_at: new Date().toISOString()
+  });
+  
+  if(claimError){
+    console.error("[Invite] Failed to record daily claim:", claimError);
+    return;
+  }
+  
+  // Record invite event
   const { data, error } = await supa.from("invite_events").insert({
     user_id: user.id,
     username: user.username,
@@ -290,11 +380,12 @@ async function recordInviteShare(){
     meta: { link: REF_LINK },
     created_at: new Date().toISOString()
   });
+  
   if(error){
     console.error("[Invite] Failed to save:", error);
   }else{
     console.log("[Invite] Saved:", data);
-    // Increment aggregate invite_stats so leaderboards and counters reflect shares
+    // Increment aggregate invite_stats (only once per day now)
     try{
       const { error: incErr } = await supa.rpc("inc_invite_stat", {
         p_user_id: user.id,
@@ -304,7 +395,10 @@ async function recordInviteShare(){
         console.error("[Invite] Failed to increment invite_stats:", incErr);
       }else{
         console.log("[Invite] invite_stats incremented");
+        lastInviteCopyDate = today;
+        saveJSON("miniapp_last_invite_copy_v1", lastInviteCopyDate);
         await refreshInviteCounts();
+        updateInviteCopyButtons();
       }
     }catch(e){
       console.error("[Invite] RPC error inc_invite_stat:", e);
@@ -827,21 +921,27 @@ function wireInvite(){
   if(inviteLink){
     inviteLink.value = REF_LINK;
     btnCopyInvite.addEventListener("click", async ()=>{
+      const today = new Date().toISOString().split('T')[0];
+      if(lastInviteCopyDate === today){
+        showToast(`Already copied today! Next copy in ${formatInviteCopyCountdown()}`);
+        return;
+      }
       const ok = await copyText(REF_LINK);
       if(ok){
-        inviteCount++;
-        inviteCountEl.textContent = inviteCount;
         showToast("Copied!");
-        recordInviteShare();
+        await recordInviteShare();
       }
     });
     btnCopyInvite2.addEventListener("click", async ()=>{
+      const today = new Date().toISOString().split('T')[0];
+      if(lastInviteCopyDate === today){
+        showToast(`Already copied today! Next copy in ${formatInviteCopyCountdown()}`);
+        return;
+      }
       const ok = await copyText(REF_LINK);
       if(ok){
-        inviteCount++;
-        inviteCountEl.textContent = inviteCount;
         showToast("Copied!");
-        recordInviteShare();
+        await recordInviteShare();
       }
     });
   }
@@ -849,24 +949,46 @@ function wireInvite(){
   if(inviteLinkTasks){
     inviteLinkTasks.value = REF_LINK;
     btnCopyInviteTasks.addEventListener("click", async ()=>{
+      const today = new Date().toISOString().split('T')[0];
+      if(lastInviteCopyDate === today){
+        showToast(`Already copied today! Next copy in ${formatInviteCopyCountdown()}`);
+        return;
+      }
       const ok = await copyText(REF_LINK);
       if(ok){
-        inviteCountTasks++;
-        inviteCountTasksEl.textContent = inviteCountTasks;
         showToast("Copied!");
-        recordInviteShare();
+        await recordInviteShare();
       }
     });
     btnCopyInviteTasks2.addEventListener("click", async ()=>{
+      const today = new Date().toISOString().split('T')[0];
+      if(lastInviteCopyDate === today){
+        showToast(`Already copied today! Next copy in ${formatInviteCopyCountdown()}`);
+        return;
+      }
       const ok = await copyText(REF_LINK);
       if(ok){
-        inviteCountTasks++;
-        inviteCountTasksEl.textContent = inviteCountTasks;
         showToast("Copied!");
-        recordInviteShare();
+        await recordInviteShare();
       }
     });
   }
+  
+  // Initialize button states
+  updateInviteCopyButtons();
+  
+  // Update countdown every minute
+  setInterval(() => {
+    const today = new Date().toISOString().split('T')[0];
+    if(lastInviteCopyDate === today){
+      updateInviteCopyButtons();
+    }else if(lastInviteCopyDate && lastInviteCopyDate !== today){
+      // New day! Reset the state
+      lastInviteCopyDate = null;
+      saveJSON("miniapp_last_invite_copy_v1", null);
+      updateInviteCopyButtons();
+    }
+  }, 60000); // Check every minute
 }
 
 function wireTabs(){
